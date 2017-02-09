@@ -9,9 +9,9 @@
         <version>3.10.0-SNAPSHOT</version>
     </parent>
 
-    <groupId>org.jooq</groupId>
+    <groupId>gy.wang</groupId>
     <artifactId>jooq-meta-extensions</artifactId>
-    <name>jOOQ Meta Extensions</name>
+    <name>jOOQ Meta Extensions extended by gy.wang</name>
 
     <licenses>
         <license>
@@ -19,13 +19,6 @@
             <url>http://www.jooq.org/inc/LICENSE.txt</url>
             <distribution>repo</distribution>
         </license>
-
-
-
-
-
-
-
     </licenses>
 
     <dependencies>

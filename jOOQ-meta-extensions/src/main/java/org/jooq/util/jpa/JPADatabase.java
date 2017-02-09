@@ -36,6 +36,7 @@ package org.jooq.util.jpa;
 
 import static org.jooq.tools.StringUtils.defaultIfBlank;
 import static org.jooq.tools.StringUtils.isBlank;
+import static org.jooq.util.h2.information_schema.tables.Tables.TABLES;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -47,19 +48,22 @@ import java.util.List;
 
 import javax.persistence.Entity;
 
-import org.jooq.DSLContext;
-import org.jooq.exception.DataAccessException;
-import org.jooq.impl.DSL;
-import org.jooq.tools.JooqLogger;
-import org.jooq.util.SchemaDefinition;
-import org.jooq.util.h2.H2Database;
-
 import org.hibernate.boot.MetadataSources;
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
 import org.hibernate.cfg.AvailableSettings;
 import org.hibernate.engine.jdbc.connections.spi.ConnectionProvider;
 import org.hibernate.tool.hbm2ddl.SchemaExport;
 import org.hibernate.tool.schema.TargetType;
+import org.jooq.DSLContext;
+import org.jooq.Record;
+import org.jooq.exception.DataAccessException;
+import org.jooq.impl.DSL;
+import org.jooq.tools.JooqLogger;
+import org.jooq.util.SchemaDefinition;
+import org.jooq.util.TableDefinition;
+import org.jooq.util.h2.H2Database;
+import org.jooq.util.h2.H2TableDefinition;
+import org.jooq.util.h2.information_schema.tables.Tables;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
 import org.springframework.core.type.filter.AnnotationTypeFilter;
@@ -87,8 +91,14 @@ public class JPADatabase extends H2Database {
             }
 
             try {
-                connection = DriverManager.getConnection("jdbc:h2:mem:jooq-meta-extensions", "sa", "");
-
+            	
+            	Connection conn = getConnection();
+            	if (conn == null) {
+            		connection = DriverManager.getConnection("jdbc:h2:mem:jooq-meta-extensions", "sa", "");
+            	} else {
+            		connection = conn;
+            	}
+            	
                 MetadataSources metadata = new MetadataSources(
                     new StandardServiceRegistryBuilder()
                         .applySetting("hibernate.dialect", "org.hibernate.dialect.H2Dialect")
@@ -159,6 +169,36 @@ public class JPADatabase extends H2Database {
         while (it.hasNext())
             if ("INFORMATION_SCHEMA".equals(it.next().getName()))
                 it.remove();
+
+        return result;
+    }
+    
+    
+    @Override
+    protected List<TableDefinition> getTables0() throws SQLException {
+        List<TableDefinition> result = new ArrayList<TableDefinition>();
+
+        for (Record record : create().select(
+                    Tables.TABLE_SCHEMA,
+                    Tables.TABLE_NAME,
+                    Tables.REMARKS)
+                .from(TABLES)
+                .where(Tables.TABLE_SCHEMA.in(getInputSchemata()))
+                .orderBy(
+                    Tables.TABLE_SCHEMA,
+                    Tables.ID)
+                .fetch()) {
+
+            SchemaDefinition schema = getSchema(record.get(Tables.TABLE_SCHEMA));
+
+            if (schema != null) {
+                String name = record.get(Tables.TABLE_NAME);
+                String comment = record.get(Tables.REMARKS);
+
+                JPATableDefinition table = new JPATableDefinition(schema, name, comment);
+                result.add(table);
+            }
+        }
 
         return result;
     }
